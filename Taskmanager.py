@@ -57,6 +57,7 @@ class MainWindow(QMainWindow):
         self.T = TaskManager()
         self.T.processes()
         self.tree.setColumnCount(4)
+        self.tree.clear()
         headerlabels = self.T.tasks[0].keys()
         self.tree.setHeaderLabels(headerlabels)
         for task in self.T.tasks:
