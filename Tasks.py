@@ -1,10 +1,11 @@
 import psutil
 class Tasks:
-    def __init__(self,name,pid,memory,cpu):
+    def __init__(self,num,name,pid,memory,cpu):
         self.pid = pid
         self.name = name
         self.memory = memory
         self.cpu = cpu
+        self.num = num
     def kill(self):
         try:
             process = psutil.Process(self.pid)
@@ -19,5 +20,5 @@ class Tasks:
             print("Terminated successfully.")
             return 1
     def stpr(self):
-        return {'Process':self.name, 'Memory': self.memory , 'CPU': self.cpu }
+        return {'S.N.': self.num, 'Process':self.name, 'Memory(MB)': self.memory , 'CPU(%)': self.cpu }
 
