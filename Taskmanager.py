@@ -1,6 +1,7 @@
 import psutil
 import time
 from Tasks import Tasks
+import subprocess
 import sys
 from PyQt5.QtCore import QSize, Qt,QTimer
 from PyQt5.QtWidgets import (
@@ -60,7 +61,7 @@ class MainWindow(QMainWindow):
         self.force_end.clicked.connect(self.force_kill)
         self.main_layout.addLayout(self.button_layout)
         self.timer.singleShot(1000,self.fill_processes)
-       
+        
     def fill_processes(self):
         self.T = TaskManager()
         self.T.processes()
