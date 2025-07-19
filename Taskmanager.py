@@ -25,11 +25,11 @@ class TaskManager:
                 continue
             memory = round((proc.memory_info().rss)/(1024*1024),3)
             cpu = proc.cpu_percent(interval = 0)/psutil.cpu_count()
-            process = Tasks(num,name,pid,memory,cpu)
+            self.process = Tasks(num,name,pid,memory,cpu)
             self.total_proc+=1
             self.totalmem_per += proc.memory_percent()
             self.totalcpu +=cpu
-            self.tasks.append(process.stpr())
+            self.tasks.append(self.process.stpr())
             num+=1
         
 class MainWindow(QMainWindow):
@@ -43,13 +43,19 @@ class MainWindow(QMainWindow):
         self.main_layout = QVBoxLayout(self.central_widget)
         self.tree = QTreeWidget(self)
         self.fill_processes()
+        self.pid_column_index = 4
+        self.tree.itemClicked.connect(self.get_pid)
         self.main_layout.addWidget(self.tree)
         self.button_layout = QHBoxLayout()
         self.refresh_task = QPushButton("Refresh Tasks")
         self.end_task = QPushButton("End Task")
+        self.force_end = QPushButton("Force End")
         self.button_layout.addWidget(self.end_task)
         self.button_layout.addWidget(self.refresh_task)
+        self.button_layout.addWidget(self.force_end)
         self.refresh_task.clicked.connect(self.on_button_click)
+        self.end_task.clicked.connect(self.kill_task)
+        self.force_end.clicked.connect(self.force_kill)
         self.main_layout.addLayout(self.button_layout)
         self.timer.singleShot(1000,self.fill_processes)
        
@@ -64,12 +70,43 @@ class MainWindow(QMainWindow):
             task_item = QTreeWidgetItem(self.tree)
             for col_index,key in enumerate(headerlabels):
                 task_item.setText(col_index,str(task.get(key,"")))
-        
+    
+    def get_pid(self,item,column):
+        p_id = item.text(self.pid_column_index)
+        self.id = int(p_id)
     
     def on_button_click(self):
         self.fill_processes()
-
     
+    def kill_task(self):
+        if hasattr(self,'id'):
+            try:
+                proc = psutil.Process(self.id)
+                proc.terminate()
+                self.fill_processes()
+            except Exception as e:
+                print("Failed to end process",e)
+        else:
+           QMessageBox.information(
+               self,
+               'Error ',
+               'No Process Selected.'
+           )
+           
+    def force_kill(self):
+        if hasattr(self,'id'):
+            try:
+                proc = psutil.Process(self.id)
+                proc.kill()
+                self.fill_processes()
+            except Exception as e:
+                print("Failed to kill process",e)
+        else:
+           QMessageBox.information(
+               self,
+               'Error ',
+               'No Process Selected.'
+           )
 app = QApplication(sys.argv)
 window = MainWindow()
 window.show()

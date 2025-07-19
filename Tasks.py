@@ -6,19 +6,7 @@ class Tasks:
         self.memory = memory
         self.cpu = cpu
         self.num = num
-    def kill(self):
-        try:
-            process = psutil.Process(self.pid)
-            process.terminate()
-        except psutil.NoSuchProcess as e:
-            print(f"ERROR!! Process not found. {e}")
-            return -1
-        except psutil.AccessDenied as d:
-            print(f"Access Denied! {d}")
-            return -2
-        else:
-            print("Terminated successfully.")
-            return 1
+        
     def stpr(self):
-        return {'S.N.': self.num, 'Process':self.name, 'Memory(MB)': self.memory , 'CPU(%)': self.cpu }
+        return {'S.N.': self.num, 'Process':self.name, 'Memory(MB)': self.memory , 'CPU(%)': self.cpu,'PID':self.pid }
 
