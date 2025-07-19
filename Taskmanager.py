@@ -1,4 +1,5 @@
 import psutil
+import time
 from Tasks import Tasks
 import sys
 from PyQt5.QtCore import QSize, Qt,QTimer
@@ -7,7 +8,7 @@ from PyQt5.QtWidgets import (
     QTableWidgetItem, QDockWidget, QFormLayout, 
     QLineEdit, QWidget, QPushButton, QSpinBox, 
     QMessageBox, QToolBar, QMessageBox,QTreeWidget,
-    QTreeWidgetItem,QWidget,QVBoxLayout,QHBoxLayout
+    QTreeWidgetItem,QWidget,QVBoxLayout,QHBoxLayout,QLabel
 )
 class TaskManager:
     def __init__(self):
@@ -37,13 +38,14 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.timer = QTimer()
         self.setWindowTitle("Process Manager")
-        self.setGeometry(100,100,480,720)
+        self.setGeometry(600,800,600,800)
         self.central_widget = QWidget()
         self.setCentralWidget(self.central_widget)
         self.main_layout = QVBoxLayout(self.central_widget)
+        self.total_data_layout = QVBoxLayout()
         self.tree = QTreeWidget(self)
-        self.fill_processes()
         self.pid_column_index = 4
+        self.fill_processes()
         self.tree.itemClicked.connect(self.get_pid)
         self.main_layout.addWidget(self.tree)
         self.button_layout = QHBoxLayout()
@@ -62,7 +64,7 @@ class MainWindow(QMainWindow):
     def fill_processes(self):
         self.T = TaskManager()
         self.T.processes()
-        self.tree.setColumnCount(4)
+        self.tree.setColumnCount(5)
         self.tree.clear()
         headerlabels = self.T.tasks[0].keys()
         self.tree.setHeaderLabels(headerlabels)
@@ -70,7 +72,7 @@ class MainWindow(QMainWindow):
             task_item = QTreeWidgetItem(self.tree)
             for col_index,key in enumerate(headerlabels):
                 task_item.setText(col_index,str(task.get(key,"")))
-    
+
     def get_pid(self,item,column):
         p_id = item.text(self.pid_column_index)
         self.id = int(p_id)
@@ -83,6 +85,7 @@ class MainWindow(QMainWindow):
             try:
                 proc = psutil.Process(self.id)
                 proc.terminate()
+                time.sleep(0.1)
                 self.fill_processes()
             except Exception as e:
                 print("Failed to end process",e)
@@ -98,6 +101,7 @@ class MainWindow(QMainWindow):
             try:
                 proc = psutil.Process(self.id)
                 proc.kill()
+                time.sleep(0.1)
                 self.fill_processes()
             except Exception as e:
                 print("Failed to kill process",e)

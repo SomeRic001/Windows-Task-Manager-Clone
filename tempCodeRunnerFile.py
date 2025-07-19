@@ -1,1 +1,1 @@
-proc.memory_percent()
+self.fill_processes()
