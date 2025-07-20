@@ -9,8 +9,10 @@ from PyQt5.QtWidgets import (
     QTableWidgetItem, QDockWidget, QFormLayout, 
     QLineEdit, QWidget, QPushButton, QSpinBox, 
     QMessageBox, QToolBar, QMessageBox,QTreeWidget,
-    QTreeWidgetItem,QWidget,QVBoxLayout,QHBoxLayout,QLabel
+    QTreeWidgetItem,QWidget,QVBoxLayout,QHBoxLayout,
+    QLabel,QGridLayout
 )
+import pyqtgraph as pg
 class TaskManager:
     def __init__(self):
         self.tasks = []
@@ -29,8 +31,6 @@ class TaskManager:
             cpu = proc.cpu_percent(interval = 0)/psutil.cpu_count()
             self.process = Tasks(num,name,pid,memory,cpu)
             self.total_proc+=1
-            self.totalmem_per += proc.memory_percent()
-            self.totalcpu +=cpu
             self.tasks.append(self.process.stpr())
             num+=1
         
@@ -38,17 +38,39 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.timer = QTimer()
+        #Setting up window
         self.setWindowTitle("Process Manager")
         self.setGeometry(600,800,600,800)
+        #Widgets and Layout
         self.central_widget = QWidget()
         self.setCentralWidget(self.central_widget)
         self.main_layout = QVBoxLayout(self.central_widget)
+        self.performance_layout = QVBoxLayout()
+        self.CPU_label = QLabel(f"Total CPU Usage: {str(psutil.cpu_percent())}%")
+        self.memory_label = QLabel(f"Total Memory Usage: {str(psutil.virtual_memory().percent)}%")
+        self.performance_layout.addWidget(self.CPU_label)
+        self.performance_layout.addWidget(self.memory_label)
+        self.main_layout.addLayout(self.performance_layout)
         self.total_data_layout = QVBoxLayout()
+        #Main Table/Tree
         self.tree = QTreeWidget(self)
         self.pid_column_index = 4
         self.fill_processes()
         self.tree.itemClicked.connect(self.get_pid)
         self.main_layout.addWidget(self.tree)
+        #Graph Layout
+        self.graph_widget = QWidget()
+        self.graph_layout = QGridLayout()
+        self.graph_widget.setLayout(self.graph_layout)
+        pg.setConfigOption('background',"#f0f0f0c9")
+        pg.setConfigOption('foreground','k')
+        self.cpu_plot = self.createplot("CPU Usage(%):",(0,100),"r")
+        self.memory_plot = self.createplot("Memory Usage(%):",(0,100),'g')
+        self.graph_layout.addWidget(self.memory_plot,0,0)
+        self.graph_layout.addWidget(self.cpu_plot,0,1)
+        self.main_layout.addWidget(self.graph_widget)
+    
+        #Buttons
         self.button_layout = QHBoxLayout()
         self.refresh_task = QPushButton("Refresh Tasks")
         self.end_task = QPushButton("End Task")
@@ -61,7 +83,7 @@ class MainWindow(QMainWindow):
         self.force_end.clicked.connect(self.force_kill)
         self.main_layout.addLayout(self.button_layout)
         self.timer.singleShot(1000,self.fill_processes)
-        
+
     def fill_processes(self):
         self.T = TaskManager()
         self.T.processes()
@@ -112,6 +134,15 @@ class MainWindow(QMainWindow):
                'Error ',
                'No Process Selected.'
            )
+    
+    def createplot(self,title,range,color):
+        plot = pg.PlotWidget(title=title)
+        plot.showGrid(x=True, y=True, alpha = 0.3)
+        plot.setYRange(*range)
+        plot.getPlotItem().getAxis('left').setPen('k')
+        plot.getPlotItem().getAxis('bottom').setPen('k')
+        plot.plot(pen=pg.mkPen(color,width = 2))
+        return plot
 app = QApplication(sys.argv)
 window = MainWindow()
 window.show()
