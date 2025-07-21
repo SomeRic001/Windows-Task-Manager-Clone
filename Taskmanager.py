@@ -38,7 +38,10 @@ class TaskManager:
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
+        #Initializing timers
         self.timer = QTimer()
+        self.process_timer = QTimer(self)
+        self.graph_timer = QTimer(self)
         #Setting up window
         self.setWindowTitle("Process Manager")
         self.setFixedSize(800,1000)
@@ -47,6 +50,8 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(self.central_widget)
         self.main_layout = QVBoxLayout(self.central_widget)
         self.performance_layout = QVBoxLayout()
+        self.CPU_data = []
+        self.mem_data = []
         self.CPU_label = QLabel(f"Total CPU Usage: {str(psutil.cpu_percent())}%")
         self.memory_label = QLabel(f"Total Memory Usage: {str(psutil.virtual_memory().percent)}%")
         self.new_task_button = QPushButton("Run New Process")
@@ -60,8 +65,12 @@ class MainWindow(QMainWindow):
         self.tree = QTreeWidget(self)
         self.pid_column_index = 4
         self.fill_processes()
+        self.update_graphs()
         self.tree.itemClicked.connect(self.get_pid)
         self.main_layout.addWidget(self.tree,stretch=4)
+        #Process Timer for Updating Process
+        self.process_timer.timeout.connect(self.fill_processes)
+        self.process_timer.start(5000)
         #Buttons
         self.button_layout = QHBoxLayout()
         self.refresh_task = QPushButton("Refresh Process List")
@@ -86,6 +95,9 @@ class MainWindow(QMainWindow):
         self.graph_layout.addWidget(self.memory_plot,0,0)
         self.graph_layout.addWidget(self.cpu_plot,0,2)
         self.main_layout.addWidget(self.graph_widget,stretch=3)
+        #Graph Timer for Updating Graph and Performance Stats
+        self.graph_timer.timeout.connect(self.update_graphs)
+        self.graph_timer.start(2000)
 
     def fill_processes(self):
         self.T = TaskManager()
@@ -100,6 +112,19 @@ class MainWindow(QMainWindow):
             task_item = QTreeWidgetItem(self.tree)
             for col_index,key in enumerate(headerlabels):
                 task_item.setText(col_index,str(task.get(key,"")))
+    
+    def update_graphs(self):
+        #CPU
+        cpu_percent = psutil.cpu_percent()
+        self.CPU_data.append(cpu_percent)
+        self.cpu_plot.getPlotItem().listDataItems()[0].setData(list(self.CPU_data))
+        self.CPU_label.setText(f"Total CPU Usage: {str(cpu_percent)}%")
+        #Memory
+        memory_percent = psutil.virtual_memory().percent
+        self.mem_data.append(memory_percent)
+        self.memory_plot.getPlotItem().listDataItems()[0].setData(list(self.mem_data))
+        self.memory_label.setText(f"Total Memory Usage: {str(memory_percent)} %")
+
 
     def get_pid(self,item,column):
         p_id = item.text(self.pid_column_index)
@@ -109,8 +134,7 @@ class MainWindow(QMainWindow):
         self.fill_processes()
     
     def run_task(self):
-        input_box = QInputDialog()
-        cmd,ok = input_box.getText(self,"Run New Process","Enter Process:")
+        cmd,ok = QInputDialog.getText(self,"Run New Process","Enter Process:")
         if ok and cmd.strip():
             try:
                 subprocess.Popen([cmd.strip()])
