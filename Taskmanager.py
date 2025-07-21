@@ -24,7 +24,10 @@ class TaskManager:
             name = proc.name()
             if name.lower() == "system idle process" :
                 continue
-            memory = round((proc.memory_info().rss)/(1024*1024),3)
+            try:
+                memory = round((proc.memory_info().rss)/(1024*1024),3)
+            except (psutil.NoSuchProcess,psutil.AccessDenied,psutil.ZombieProcess):
+                continue
             cpu = proc.cpu_percent(interval = 0)/psutil.cpu_count()
             self.process = Tasks(0,name,pid,memory,cpu)
             self.tasks.append(self.process.stpr())
