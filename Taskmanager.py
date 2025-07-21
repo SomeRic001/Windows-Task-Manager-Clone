@@ -65,7 +65,6 @@ class MainWindow(QMainWindow):
         self.tree = QTreeWidget(self)
         self.pid_column_index = 4
         self.fill_processes()
-        self.update_graphs()
         self.tree.itemClicked.connect(self.get_pid)
         self.main_layout.addWidget(self.tree,stretch=4)
         #Process Timer for Updating Process
