@@ -8,5 +8,5 @@ class Tasks:
         self.num = num
         
     def stpr(self):
-        return {'S.N.': self.num, 'Process':self.name, 'Memory(MB)': self.memory , 'CPU(%)': self.cpu,'PID':self.pid }
+        return { 'Process':self.name, 'Memory(MB)': self.memory , 'CPU(%)': self.cpu,'PID':self.pid }
 
