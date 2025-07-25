@@ -13,14 +13,16 @@ import subprocess
 import sys
 import time
 import psutil
-
+from collections import defaultdict
 class TaskTreeItem(QTreeWidgetItem):
     def __lt__(self,other):
         column = self.treeWidget().sortColumn()
-        try:
-            return float(self.text(column))<float(other.text(column))
-        except (ValueError,TypeError):
-            return self.text(column).lower()<other.text(column).lower()
+        if self.parent() is None and other.parent() is None:
+            try:
+                return float(self.text(column))<float(other.text(column))
+            except (ValueError,TypeError):
+                return self.text(column).lower()< other.text(column).lower()
+        return False
         
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -55,12 +57,14 @@ class MainWindow(QMainWindow):
         header.setSectionsClickable(True)
         header.setSortIndicatorShown(True)
         self.tree.setSortingEnabled(True)
+        self.tree.sortItems(0,Qt.AscendingOrder)
+        self.tree.setColumnWidth(0,300)
         self.fill_processes()
         self.tree.itemClicked.connect(self.get_pid)
         self.main_layout.addWidget(self.tree,stretch=4)
         #Process Timer for Updating Process
         self.process_timer.timeout.connect(self.fill_processes)
-        self.process_timer.start(5000)
+        self.process_timer.start(10000)
         #Buttons
         self.button_layout = QHBoxLayout()
         self.refresh_task = QPushButton("Refresh Process List")
@@ -78,7 +82,7 @@ class MainWindow(QMainWindow):
         self.graph_widget = QWidget()
         self.graph_layout = QGridLayout()
         self.graph_widget.setLayout(self.graph_layout)
-        pg.setConfigOption('background',"#f0f0f0c9")
+        pg.setConfigOption('background',"#f2f2f2c5")
         pg.setConfigOption('foreground','k')
         self.cpu_plot = self.createplot("CPU Usage(%):",(0,100),"r")
         self.memory_plot = self.createplot("Memory Usage(%):",(0,100),'g')
@@ -92,19 +96,43 @@ class MainWindow(QMainWindow):
     def fill_processes(self):
         self.T = TaskManager()
         self.T.processes()
+
         scroll_pos = self.tree.verticalScrollBar().value()
         self.tree.setColumnCount(4)
-        headerlabels = self.T.tasks[0].keys()
-        root = self.tree.invisibleRootItem()
-        while (root.childCount() > 0):
-            root.removeChild(root.child(0))
+
+        
+        headerlabels = ["Process", "Memory(MB)", "CPU(%)", "PID"]
         self.tree.setHeaderLabels(headerlabels)
+
+        root = self.tree.invisibleRootItem()
+        while root.childCount() > 0:
+            root.removeChild(root.child(0))
+    # Grouping tasks with same name
+        grouped = defaultdict(list)
         for task in self.T.tasks:
-            task_item = TaskTreeItem(self.tree)
-            for col_index,key in enumerate(headerlabels):
-                task_item.setText(col_index,str(task.get(key,"")))
+            grouped[task['Process']].append(task)
+
+        for name, group in grouped.items():
+            count = len(group)
+            total_cpu = sum(float(p.get("CPU(%)", 0)) for p in group)
+            total_mem = sum(float(p.get("Memory(MB)", 0)) for p in group)
+
+            parent = TaskTreeItem(self.tree)
+            parent.setText(0, f"{name} ({count} instances)")
+            parent.setText(1, f"{total_mem:.2f}")
+            parent.setText(2, f"{total_cpu:.2f}")
+            parent.setExpanded(False)
+
+            for task in group:
+                child = QTreeWidgetItem()
+                child.setText(0, task.get("Process", ""))
+                child.setText(1, str(task.get("Memory(MB)", "")))
+                child.setText(2, str(task.get("CPU(%)", "")))
+                child.setText(3, str(task.get("PID","")))
+                parent.addChild(child)
+
         self.tree.verticalScrollBar().setValue(scroll_pos)
-    
+            
     def update_graphs(self):
         #CPU
         cpu_percent = psutil.cpu_percent()
@@ -117,14 +145,23 @@ class MainWindow(QMainWindow):
         self.memory_plot.getPlotItem().listDataItems()[0].setData(list(self.mem_data))
         self.memory_label.setText(f"Total Memory Usage: {str(memory_percent)} %")
 
-
     def get_pid(self,item,column):
         p_id = item.text(self.pid_column_index)
-        if p_id.strip() == '':
-            self.id = None
-            print("none")
-        else:
-            self.id = int(p_id)
+        if not p_id.isdigit():
+            child_pids = []
+            for i in range(item.childCount()):
+                child = item.child(i)
+                pid_text = child.text(self.pid_column_index)
+                if pid_text.isdigit():
+                    child_pids.append(int(pid_text))
+            if child_pids:
+                self.ids = child_pids
+            else:
+                self.ids = None
+            return
+        self.id = int(p_id)
+
+
     
     def on_button_click(self):
         self.fill_processes()
@@ -150,12 +187,13 @@ class MainWindow(QMainWindow):
                 )
 
     def kill_task(self):
-        if hasattr(self,'id'):
+        if getattr(self,'id',None) is not None:
             try:
                 proc = psutil.Process(self.id)
                 proc.terminate()
                 time.sleep(0.2)
                 self.fill_processes()
+                self.id = None
             except Exception as e:
                 print (e)
                 QMessageBox.information(
@@ -163,33 +201,70 @@ class MainWindow(QMainWindow):
                     'Error',
                     'Cannot End Process.'
                 )
+        elif getattr(self, 'ids',None):
+            failed = False
+            for id in self.ids:
+                try:
+                    proc = psutil.Process(id)
+                    proc.terminate()
+               
+                except Exception as e:
+                    failed = True
+            time.sleep(0.2)
+            self.fill_processes()
+            self.ids = None
+            if failed:
+                    QMessageBox.information(
+                        self,
+                        'Error ',
+                        'Cannot End Process.'
+                         )
         else:
-           QMessageBox.information(
-               self,
-               'Error ',
-               'No Process Selected.'
-           )
-           
+            QMessageBox.information(
+                self,
+                'Error ',
+                'No process Selected.'
+                )
+
     def force_kill(self):
-        if hasattr(self,'id'):
+        if getattr(self,'id',None) is not None:
             try:
                 proc = psutil.Process(self.id)
                 proc.kill()
                 time.sleep(0.2)
                 self.fill_processes()
-
+                self.id = None
             except Exception as e:
+                print (e)
                 QMessageBox.information(
                     self,
                     'Error',
                     'Cannot End Process.'
-                    )
+                )
+        elif getattr(self, 'ids',None):
+            failed = False
+            for id in self.ids:
+                try:
+                    proc = psutil.Process(id)
+                    proc.kill()
+               
+                except Exception as e:
+                    failed = True
+            time.sleep(0.2)
+            self.fill_processes()
+            self.ids = None
+            if failed:
+                    QMessageBox.information(
+                        self,
+                        'Error ',
+                        'Cannot End Process.'
+                         )
         else:
-           QMessageBox.information(
-               self,
-               'Error ',
-               'No Process Selected.'
-           )
+            QMessageBox.information(
+                self,
+                'Error ',
+                'No process Selected.'
+                )
     
     def createplot(self,title,range,color):
         plot = pg.PlotWidget(title=title)
